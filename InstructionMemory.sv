@@ -12,6 +12,6 @@ module InstructionMemory(
         $readmemh("program.hex", memory);
     end
 
-    assign RD = memory[A[9:2]];
+    assign RD = memory[A/4];
 
 endmodule
