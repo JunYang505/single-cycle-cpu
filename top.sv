@@ -12,7 +12,7 @@ module top (
 
     logic [31:0] RD1;
     logic [31:0] RD2;
-    logic [31:0] WD3;
+    logic [31:0] Result;
 
     logic [31:0] ImmExt;
 
@@ -32,67 +32,90 @@ module top (
     logic [1:0] ResultSrc;
     logic [2:0] ALUControl;
 
+    always_ff @(posedge clk) begin
+    if (reset)
+        PC <= 32'd0;
+    else
+        PC <= PCNext;
+end
+
+    assign PCTarget = PC + ImmExt;
+    assign PCNext = (PCSrc == 0) ? PCPlus4 : PCTarget;
+    assign SrcB = (ALUSrc == 0) ? RD2 : ImmExt;
+    
 
     PCadd pc_adder (
-        .PC(),
-        .PCPlus4()
+        .PC(PC),
+        .PCPlus4(PCPlus4)
     );
 
 
     InstructionMemory instruction_memory (
-        .A(),
-        .RD()
+        .A(PC),
+        .RD(Instr)
     );
 
 
     ControlUnit control_unit (
-        .Instr(),
-        .zero(),
-        .PCSrc(),
-        .ResultSrc(),
-        .MemWrite(),
-        .ALUControl(),
-        .ALUSrc(),
-        .ImmSrc(),
-        .RegWrite()
+        .Instr(Instr),
+        .zero(zero),
+        .PCSrc(PCSrc),
+        .ResultSrc(ResultSrc),
+        .MemWrite(MemWrite),
+        .ALUControl(ALUControl),
+        .ALUSrc(ALUSrc),
+        .ImmSrc(ImmSrc),
+        .RegWrite(RegWrite)
     );
 
 
     RegisterFile register_file (
-        .clk(),
-        .WE3(),
-        .A1(),
-        .A2(),
-        .A3(),
-        .WD3(),
-        .RD1(),
-        .RD2()
+        .clk(clk),
+        .WE3(RegWrite),
+        .A1(Instr[19:15]),
+        .A2(Instr[24:20]),
+        .A3(Instr[11:7]),
+        .WD3(Result),
+        .RD1(RD1),
+        .RD2(RD2)
     );
-
+    
+    assign SrcA = RD1;
 
     Extend extend_unit (
-        .Instr(),
-        .ImmSrc(),
-        .ImmExt()
+        .Instr(Instr[31:7]),
+        .ImmSrc(ImmSrc),
+        .ImmExt(ImmExt)
     );
 
 
     ALU alu (
-        .SrcA(),
-        .SrcB(),
-        .ALUControl(),
-        .ALUresult(),
-        .zero()
+        .SrcA(SrcA),
+        .SrcB(SrcB),
+        .ALUControl(ALUControl),
+        .ALUresult(ALUResult),
+        .zero(zero)
     );
 
 
     DataMemory data_memory (
-        .clk(),
-        .WE(),
-        .A(),
-        .WD(),
-        .RD()
+        .clk(clk),
+        .WE(MemWrite),
+        .A(ALUResult),
+        .WD(RD2),
+        .RD(ReadData)
     );
 
+    always_comb begin
+        Result = 32'b0;
+        case (ResultSrc) 
+            2'b00: Result = ALUResult; 
+            2'b01: Result = ReadData;
+            2'b10: Result = PCPlus4;
+            //2'b11:
+
+            default: Result = 32'b0;
+        endcase
+    end
 
 endmodule
